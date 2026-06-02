@@ -18,13 +18,12 @@
     background: #f0f2f5;
     color: #1a1a2e;
     min-height: 100vh;
-    min-height: -webkit-fill-available;
   }
 
   header {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    padding: env(safe-area-inset-top, 20px) 20px 16px;
+    padding: 20px 20px 16px;
     padding-top: calc(env(safe-area-inset-top, 0px) + 20px);
     position: sticky;
     top: 0;
@@ -32,23 +31,37 @@
     box-shadow: 0 2px 12px rgba(102,126,234,0.3);
   }
 
+  .header-top { display: flex; align-items: center; justify-content: space-between; }
   header h1 { font-size: 1.3rem; font-weight: 700; }
   header p { font-size: 0.78rem; opacity: 0.8; margin-top: 2px; }
 
-  .stats { display: flex; gap: 12px; margin-top: 12px; }
-  .stat {
+  .sync-btn {
     background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
     border-radius: 8px;
-    padding: 6px 12px;
-    font-size: 0.75rem;
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
   }
+
+  .sync-btn.syncing { opacity: 0.6; }
+
+  .stats { display: flex; gap: 12px; margin-top: 12px; }
+  .stat { background: rgba(255,255,255,0.2); border-radius: 8px; padding: 6px 12px; font-size: 0.75rem; }
   .stat span { font-weight: 700; font-size: 1rem; display: block; }
 
-  main {
-    max-width: 680px;
-    margin: 0 auto;
-    padding: 16px 14px calc(env(safe-area-inset-bottom, 0px) + 80px);
+  .sync-status {
+    font-size: 0.72rem;
+    opacity: 0.75;
+    margin-top: 6px;
+    min-height: 14px;
   }
+
+  main { max-width: 680px; margin: 0 auto; padding: 16px 14px calc(env(safe-area-inset-bottom, 0px) + 80px); }
 
   .add-card {
     background: white;
@@ -59,7 +72,6 @@
   }
 
   .add-card h2 { font-size: 0.85rem; font-weight: 600; color: #555; margin-bottom: 10px; }
-
   .form-row { display: flex; gap: 8px; margin-bottom: 10px; }
 
   input[type="text"], input[type="date"], select {
@@ -71,7 +83,6 @@
     outline: none;
     background: #fafafa;
     -webkit-appearance: none;
-    appearance: none;
     color: #1a1a2e;
   }
 
@@ -112,17 +123,12 @@
     flex-shrink: 0;
   }
 
-  .filter-btn.active {
-    background: #667eea;
-    border-color: #667eea;
-    color: white;
-    font-weight: 600;
-  }
+  .filter-btn.active { background: #667eea; border-color: #667eea; color: white; font-weight: 600; }
 
   .task-item {
     background: white;
     border-radius: 14px;
-    padding: 14px 14px;
+    padding: 14px;
     margin-bottom: 8px;
     display: flex;
     align-items: flex-start;
@@ -144,8 +150,7 @@
   .task-item[data-priority="low"]    { border-left-color: #2ed573; }
 
   .task-check {
-    width: 26px;
-    height: 26px;
+    width: 26px; height: 26px;
     border-radius: 50%;
     border: 2px solid #ddd;
     flex-shrink: 0;
@@ -161,7 +166,6 @@
 
   .task-body { flex: 1; min-width: 0; }
   .task-title { font-size: 0.95rem; font-weight: 500; word-break: break-word; line-height: 1.4; }
-
   .task-meta { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
 
   .tag { font-size: 0.68rem; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
@@ -178,35 +182,45 @@
   .cat-other    { background: #f0f0f0; color: #555; }
 
   .task-del {
-    background: none;
-    border: none;
-    color: #ccc;
-    cursor: pointer;
-    font-size: 1.3rem;
-    padding: 4px 6px;
-    border-radius: 6px;
-    flex-shrink: 0;
-    line-height: 1;
+    background: none; border: none; color: #ccc;
+    cursor: pointer; font-size: 1.3rem;
+    padding: 4px 6px; border-radius: 6px;
+    flex-shrink: 0; line-height: 1;
   }
 
   .empty { text-align: center; padding: 50px 20px; color: #bbb; font-size: 0.9rem; }
   .empty div { font-size: 2.5rem; margin-bottom: 8px; }
 
-  @media (max-width: 400px) {
-    .form-row { flex-direction: column; }
+  .offline-banner {
+    background: #ff4757;
+    color: white;
+    text-align: center;
+    padding: 6px;
+    font-size: 0.78rem;
+    display: none;
   }
+
+  @media (max-width: 400px) { .form-row { flex-direction: column; } }
 </style>
 </head>
 <body>
 
+<div class="offline-banner" id="offline-banner">📵 オフライン中 — データは接続後に同期されます</div>
+
 <header>
-  <h1>📋 Daily Tasks</h1>
-  <p id="today-label"></p>
+  <div class="header-top">
+    <div>
+      <h1>📋 Daily Tasks</h1>
+      <p id="today-label"></p>
+    </div>
+    <button class="sync-btn" id="sync-btn">🔄 同期</button>
+  </div>
   <div class="stats">
     <div class="stat"><span id="stat-total">0</span>合計</div>
     <div class="stat"><span id="stat-done">0</span>完了</div>
     <div class="stat"><span id="stat-remain">0</span>残り</div>
   </div>
+  <div class="sync-status" id="sync-status">読み込み中...</div>
 </header>
 
 <main>
@@ -246,6 +260,16 @@
 
 <script>
 (function() {
+  // ── Supabase config ──
+  const SB_URL = 'https://jwtptjtllxrlpwzzuwdy.supabase.co';
+  const SB_KEY = 'sb_publishable_3hgnzMtbRjmTTWHy8VK7Mg_sNr_4GcZ';
+  const HEADERS = {
+    'apikey': SB_KEY,
+    'Authorization': 'Bearer ' + SB_KEY,
+    'Content-Type': 'application/json',
+    'Prefer': 'return=representation'
+  };
+
   const CATS = {
     work:     { label: '💼 仕事',        cls: 'cat-work' },
     personal: { label: '🏠 プライベート', cls: 'cat-personal' },
@@ -261,44 +285,93 @@
 
   let tasks = [];
   let currentFilter = 'all';
-
-  try { tasks = JSON.parse(localStorage.getItem('daily-tasks') || '[]'); } catch(e) {}
-
-  function save() {
-    try { localStorage.setItem('daily-tasks', JSON.stringify(tasks)); } catch(e) {}
-  }
+  let isSyncing = false;
 
   function todayStr() {
     const d = new Date();
     return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
   }
 
-  function addTask() {
+  function setStatus(msg) {
+    document.getElementById('sync-status').textContent = msg;
+  }
+
+  // ── Supabase API ──
+  async function sbFetch(path, options) {
+    const res = await fetch(SB_URL + '/rest/v1/' + path, { headers: HEADERS, ...options });
+    if (!res.ok) throw new Error(await res.text());
+    const text = await res.text();
+    return text ? JSON.parse(text) : null;
+  }
+
+  async function loadTasks() {
+    setStatus('同期中...');
+    try {
+      const data = await sbFetch('tasks?order=id.desc');
+      tasks = data || [];
+      setStatus('最終同期: ' + new Date().toLocaleTimeString('ja-JP'));
+      render();
+    } catch(e) {
+      setStatus('⚠ オフライン — ローカルデータを表示中');
+      // fallback to localStorage
+      try { tasks = JSON.parse(localStorage.getItem('daily-tasks') || '[]'); } catch(_) {}
+      render();
+    }
+  }
+
+  async function addTask() {
     const input = document.getElementById('task-input');
     const title = input.value.trim();
     if (!title) { input.focus(); return; }
-    tasks.unshift({
+
+    const task = {
       id: Date.now(),
       title,
       category: document.getElementById('cat-select').value,
       priority: document.getElementById('pri-select').value,
-      due: document.getElementById('due-input').value,
+      due: document.getElementById('due-input').value || null,
       done: false,
       created: todayStr(),
-    });
+    };
+
     input.value = '';
     document.getElementById('due-input').value = '';
-    save(); render(); input.focus();
+
+    // Optimistic UI
+    tasks.unshift(task);
+    render();
+    input.focus();
+
+    try {
+      await sbFetch('tasks', { method: 'POST', body: JSON.stringify(task) });
+      setStatus('最終同期: ' + new Date().toLocaleTimeString('ja-JP'));
+    } catch(e) {
+      // Save locally as fallback
+      try { localStorage.setItem('daily-tasks', JSON.stringify(tasks)); } catch(_) {}
+      setStatus('⚠ オフライン — ローカルに保存');
+    }
   }
 
-  function toggleDone(id) {
+  async function toggleDone(id) {
     const t = tasks.find(t => t.id === id);
-    if (t) { t.done = !t.done; save(); render(); }
+    if (!t) return;
+    t.done = !t.done;
+    render();
+    try {
+      await sbFetch('tasks?id=eq.' + id, { method: 'PATCH', body: JSON.stringify({ done: t.done }) });
+    } catch(e) {
+      setStatus('⚠ 同期失敗');
+    }
   }
 
-  function deleteTask(id) {
+  async function deleteTask(id) {
     tasks = tasks.filter(t => t.id !== id);
-    save(); render();
+    render();
+    try {
+      await sbFetch('tasks?id=eq.' + id, { method: 'DELETE' });
+    } catch(e) {
+      setStatus('⚠ 同期失敗');
+    }
   }
 
   function getFiltered() {
@@ -311,12 +384,13 @@
   }
 
   function esc(s) {
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
   function render() {
     const td = todayStr();
     const list = getFiltered();
+
     document.getElementById('stat-total').textContent  = tasks.length;
     document.getElementById('stat-done').textContent   = tasks.filter(t => t.done).length;
     document.getElementById('stat-remain').textContent = tasks.filter(t => !t.done).length;
@@ -359,6 +433,7 @@
     }).join('');
   }
 
+  // Events
   document.getElementById('task-list').addEventListener('click', e => {
     const el = e.target.closest('[data-action]');
     if (!el) return;
@@ -369,6 +444,8 @@
 
   document.getElementById('add-btn').addEventListener('click', addTask);
   document.getElementById('task-input').addEventListener('keydown', e => { if (e.key === 'Enter') addTask(); });
+  document.getElementById('sync-btn').addEventListener('click', () => { loadTasks(); });
+
   document.getElementById('filters').addEventListener('click', e => {
     const btn = e.target.closest('.filter-btn');
     if (!btn) return;
@@ -378,11 +455,20 @@
     render();
   });
 
+  // Offline detection
+  window.addEventListener('online',  () => { document.getElementById('offline-banner').style.display = 'none'; loadTasks(); });
+  window.addEventListener('offline', () => { document.getElementById('offline-banner').style.display = 'block'; });
+
+  // Today label
   const d = new Date();
   document.getElementById('today-label').textContent =
     d.toLocaleDateString('ja-JP', { year:'numeric', month:'long', day:'numeric', weekday:'long' });
 
-  render();
+  // Auto reload every 30s (for multi-device sync)
+  setInterval(loadTasks, 30000);
+
+  // Init
+  loadTasks();
 
   // Service Worker
   if ('serviceWorker' in navigator) {
