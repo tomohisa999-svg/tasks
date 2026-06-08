@@ -201,6 +201,55 @@
   }
 
   @media (max-width: 400px) { .form-row { flex-direction: column; } }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 100;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: white;
+    border-radius: 20px 20px 0 0;
+    padding: 24px 20px calc(env(safe-area-inset-bottom,0px) + 24px);
+    width: 100%;
+    max-width: 680px;
+    animation: slideUp 0.25s ease;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+
+  .modal h3 { font-size: 1rem; font-weight: 700; margin-bottom: 16px; }
+
+  .modal-row { margin-bottom: 12px; }
+  .modal-row label { font-size: 0.8rem; color: #888; display: block; margin-bottom: 4px; }
+
+  .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+
+  .btn-save {
+    flex: 1;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white; border: none; border-radius: 10px;
+    padding: 12px; font-size: 1rem; font-weight: 600; cursor: pointer;
+  }
+
+  .btn-cancel {
+    background: #f0f0f0; color: #555; border: none;
+    border-radius: 10px; padding: 12px 20px;
+    font-size: 1rem; cursor: pointer;
+  }
+
+  .task-title { cursor: pointer; }
+  .task-title:hover { text-decoration: underline; text-decoration-color: #aaa; }
 </style>
 </head>
 <body>
@@ -257,6 +306,43 @@
 
   <div id="task-list"></div>
 </main>
+
+<!-- Edit Modal -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <h3>✏️ タスクを編集</h3>
+    <div class="modal-row">
+      <label>タスク名</label>
+      <input type="text" id="edit-title" maxlength="100">
+    </div>
+    <div class="modal-row">
+      <label>カテゴリ</label>
+      <select id="edit-cat">
+        <option value="work">💼 仕事</option>
+        <option value="personal">🏠 プライベート</option>
+        <option value="health">🏃 健康</option>
+        <option value="study">📚 勉強</option>
+        <option value="other">📌 その他</option>
+      </select>
+    </div>
+    <div class="modal-row">
+      <label>優先度</label>
+      <select id="edit-pri">
+        <option value="high">🔴 高優先</option>
+        <option value="medium">🟡 中優先</option>
+        <option value="low">🟢 低優先</option>
+      </select>
+    </div>
+    <div class="modal-row">
+      <label>期限日</label>
+      <input type="date" id="edit-due">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="modal-cancel">キャンセル</button>
+      <button class="btn-save" id="modal-save">保存</button>
+    </div>
+  </div>
+</div>
 
 <script>
 (function() {
@@ -421,7 +507,7 @@
       return `<div class="task-item${t.done?' done':''}" data-priority="${esc(t.priority)}">
         <div class="task-check${t.done?' checked':''}" data-action="toggle" data-id="${t.id}"></div>
         <div class="task-body">
-          <div class="task-title">${esc(t.title)}</div>
+          <div class="task-title" data-action="edit" data-id="${t.id}">${esc(t.title)}</div>
           <div class="task-meta">
             <span class="tag ${cat.cls}">${cat.label}</span>
             <span class="tag ${pri.cls}">${pri.label}</span>
@@ -433,6 +519,60 @@
     }).join('');
   }
 
+  // ── Edit modal ──
+  let editingId = null;
+
+  function openEdit(id) {
+    const t = tasks.find(t => t.id === id);
+    if (!t) return;
+    editingId = id;
+    document.getElementById('edit-title').value = t.title;
+    document.getElementById('edit-cat').value   = t.category || 'other';
+    document.getElementById('edit-pri').value   = t.priority || 'medium';
+    document.getElementById('edit-due').value   = t.due || '';
+    document.getElementById('modal-overlay').classList.add('open');
+    setTimeout(() => document.getElementById('edit-title').focus(), 100);
+  }
+
+  function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('open');
+    editingId = null;
+  }
+
+  async function saveEdit() {
+    if (!editingId) return;
+    const t = tasks.find(t => t.id === editingId);
+    if (!t) return;
+
+    const updates = {
+      title:    document.getElementById('edit-title').value.trim() || t.title,
+      category: document.getElementById('edit-cat').value,
+      priority: document.getElementById('edit-pri').value,
+      due:      document.getElementById('edit-due').value || null,
+    };
+
+    Object.assign(t, updates);
+    closeModal();
+    render();
+
+    try {
+      await sbFetch('tasks?id=eq.' + editingId, { method: 'PATCH', body: JSON.stringify(updates) });
+      setStatus('最終同期: ' + new Date().toLocaleTimeString('ja-JP'));
+    } catch(e) {
+      setStatus('⚠ 同期失敗');
+    }
+  }
+
+  document.getElementById('modal-save').addEventListener('click', saveEdit);
+  document.getElementById('modal-cancel').addEventListener('click', closeModal);
+  document.getElementById('modal-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-overlay')) closeModal();
+  });
+  document.getElementById('edit-title').addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveEdit();
+    if (e.key === 'Escape') closeModal();
+  });
+
   // Events
   document.getElementById('task-list').addEventListener('click', e => {
     const el = e.target.closest('[data-action]');
@@ -440,6 +580,7 @@
     const id = Number(el.dataset.id);
     if (el.dataset.action === 'toggle') toggleDone(id);
     if (el.dataset.action === 'delete') deleteTask(id);
+    if (el.dataset.action === 'edit')   openEdit(id);
   });
 
   document.getElementById('add-btn').addEventListener('click', addTask);
