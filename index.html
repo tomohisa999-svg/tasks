@@ -541,7 +541,8 @@
 
   async function saveEdit() {
     if (!editingId) return;
-    const t = tasks.find(t => t.id === editingId);
+    const id = editingId;
+    const t = tasks.find(t => t.id === id);
     if (!t) return;
 
     const updates = {
@@ -556,7 +557,7 @@
     render();
 
     try {
-      await sbFetch('tasks?id=eq.' + editingId, { method: 'PATCH', body: JSON.stringify(updates) });
+      await sbFetch('tasks?id=eq.' + id, { method: 'PATCH', body: JSON.stringify(updates) });
       setStatus('最終同期: ' + new Date().toLocaleTimeString('ja-JP'));
     } catch(e) {
       setStatus('⚠ 同期失敗');
