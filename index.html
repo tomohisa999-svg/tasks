@@ -9,6 +9,7 @@
 <meta name="theme-color" content="#667eea">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-192.png">
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 <title>Daily Tasks</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -250,6 +251,21 @@
 
   .task-title { cursor: pointer; }
   .task-title:hover { text-decoration: underline; text-decoration-color: #aaa; }
+
+  .drag-handle {
+    color: #ccc;
+    font-size: 1.1rem;
+    cursor: grab;
+    padding: 2px 4px;
+    flex-shrink: 0;
+    touch-action: none;
+    user-select: none;
+    margin-top: 2px;
+  }
+  .drag-handle:active { cursor: grabbing; }
+
+  .sortable-ghost { opacity: 0.35; background: #e8eaff; }
+  .sortable-chosen { box-shadow: 0 4px 16px rgba(102,126,234,0.25); }
 </style>
 </head>
 <body>
@@ -497,6 +513,19 @@
       return b.id - a.id;
     });
 
+    // Apply saved order
+    const savedOrder = getSavedOrder();
+    if (savedOrder.length && currentFilter === 'all') {
+      sorted.sort((a, b) => {
+        const ai = savedOrder.indexOf(a.id);
+        const bi = savedOrder.indexOf(b.id);
+        if (ai === -1 && bi === -1) return 0;
+        if (ai === -1) return 1;
+        if (bi === -1) return -1;
+        return ai - bi;
+      });
+    }
+
     container.innerHTML = sorted.map(t => {
       const cat = CATS[t.category] || CATS.other;
       const pri = PRI[t.priority] || PRI.medium;
@@ -504,7 +533,8 @@
       const dueTag = t.due
         ? `<span class="tag tag-date${overdue?' overdue':''}">${overdue?'⚠ ':'📅 '}${esc(t.due)}${overdue?' 期限切れ':''}</span>`
         : '';
-      return `<div class="task-item${t.done?' done':''}" data-priority="${esc(t.priority)}">
+      return `<div class="task-item${t.done?' done':''}" data-priority="${esc(t.priority)}" data-id="${t.id}">
+        <div class="drag-handle" title="ドラッグして並び替え">⠿</div>
         <div class="task-check${t.done?' checked':''}" data-action="toggle" data-id="${t.id}"></div>
         <div class="task-body">
           <div class="task-title" data-action="edit" data-id="${t.id}">${esc(t.title)}</div>
@@ -517,6 +547,38 @@
         <button class="task-del" data-action="delete" data-id="${t.id}">×</button>
       </div>`;
     }).join('');
+
+    if (typeof Sortable !== 'undefined') initSortable();
+  }
+
+  // ── Order persistence ──
+  function getSavedOrder() {
+    try { return JSON.parse(localStorage.getItem('tasks-order') || '[]'); } catch(e) { return []; }
+  }
+  function saveOrder(ids) {
+    try { localStorage.setItem('tasks-order', JSON.stringify(ids)); } catch(e) {}
+  }
+
+  let sortable = null;
+  function initSortable() {
+    if (sortable) { sortable.destroy(); sortable = null; }
+    const container = document.getElementById('task-list');
+    sortable = Sortable.create(container, {
+      handle: '.drag-handle',
+      animation: 150,
+      ghostClass: 'sortable-ghost',
+      chosenClass: 'sortable-chosen',
+      onEnd() {
+        const ids = [...container.querySelectorAll('.task-item[data-id]')]
+          .map(el => Number(el.dataset.id));
+        saveOrder(ids);
+        // Reorder tasks array to match
+        const idMap = Object.fromEntries(tasks.map(t => [t.id, t]));
+        const reordered = ids.map(id => idMap[id]).filter(Boolean);
+        const rest = tasks.filter(t => !ids.includes(t.id));
+        tasks = [...reordered, ...rest];
+      }
+    });
   }
 
   // ── Edit modal ──
